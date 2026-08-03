@@ -121,6 +121,12 @@ def load_done_rows():
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Extract emails from practice websites")
+    parser.add_argument("--max-runtime", type=int, default=0,
+                        help="Stop after this many seconds (0 = no limit). Used for scheduled auto-resume runs.")
+    args = parser.parse_args()
+
     cfg = load_config()
     session = RotatingSession(cfg["user_agents"])
     done = load_done_rows()
@@ -134,9 +140,14 @@ def main():
     if out_mode == "w":
         writer.writeheader()
 
+    import time as _time
+    start_time = _time.monotonic()
     found = skipped = 0
     try:
         for row in tqdm(rows, desc="Extracting emails", unit="site"):
+            if args.max_runtime and _time.monotonic() - start_time > args.max_runtime:
+                print(f"  [!] Reached max runtime ({args.max_runtime}s). Stopping cleanly.", file=sys.stderr)
+                break
             if row["npi"] in done:
                 skipped += 1
                 continue

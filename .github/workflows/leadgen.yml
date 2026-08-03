@@ -26,6 +26,14 @@ on:
   schedule:
     # Weekly Monday 4:00 UTC — refresh NPI data
     - cron: '0 4 * * 1'
+    # Every hour — auto-resume website discovery until orgs done
+    - cron: '15 * * * *'
+
+# Prevent overlapping runs: only one pipeline run at a time. New scheduled
+# runs wait in queue, so two runs can never write the same CSV concurrently.
+concurrency:
+  group: leadgen-pipeline
+  cancel-in-progress: false
 
 jobs:
   run:
@@ -49,22 +57,29 @@ jobs:
         uses: actions/cache@v4
         with:
           path: outputs
-          key: leadgen-outputs-v1-${{ github.run_id }}
-          restore-keys: leadgen-outputs-v1-
+          key: leadgen-outputs-v2-${{ github.run_id }}
+          restore-keys: |
+            leadgen-outputs-v2-
+            leadgen-outputs-v1-
 
       - name: Run Stage 1 (NPI fetch)
-        if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '1' || github.event_name == 'schedule' }}
+        if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '1' || github.event.schedule == '0 4 * * 1' }}
         run: python npi_fetch.py
 
       - name: Run Stage 2 (Website discovery)
-        if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '2' }}
+        if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '2' || github.event_name == 'schedule' }}
         run: |
-          ARGS="--limit ${{ github.event.inputs.limit }}"
-          if [ "${{ github.event.inputs.only_orgs }}" = "true" ]; then ARGS="--only-orgs $ARGS"; fi
-          python find_websites.py $ARGS
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # Unattended overnight sweep: process orgs as far as possible, stop cleanly before the 300-min job limit.
+            python find_websites.py --only-orgs --max-runtime 15500
+          else
+            ARGS="--limit ${{ github.event.inputs.limit }}"
+            if [ "${{ github.event.inputs.only_orgs }}" = "true" ]; then ARGS="--only-orgs $ARGS"; fi
+            python find_websites.py $ARGS
+          fi
 
       - name: Run Stage 3 (Email extraction)
-        if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '3' }}
+        if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '3' || github.event_name == 'schedule' }}
         run: python find_emails.py
 
       - name: Verify outputs
@@ -85,4 +100,4 @@ jobs:
         uses: actions/cache@v4
         with:
           path: outputs
-          key: leadgen-outputs-v1-${{ github.run_id }}
+          key: leadgen-outputs-v2-${{ github.run_id }}

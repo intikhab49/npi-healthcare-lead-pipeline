@@ -154,6 +154,8 @@ def main():
     parser = argparse.ArgumentParser(description="Find practice websites via DuckDuckGo")
     parser.add_argument("--only-orgs", action="store_true", help="Only search organizations (skip individuals)")
     parser.add_argument("--limit", type=int, default=0, help="Max rows to process in this run (0 = all)")
+    parser.add_argument("--max-runtime", type=int, default=0,
+                        help="Stop after this many seconds (0 = no limit). Used for scheduled auto-resume runs.")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -173,9 +175,14 @@ def main():
     if out_mode == "w":
         writer.writeheader()
 
+    import time as _time
+    start_time = _time.monotonic()
     found = skipped = 0
     try:
         for row in tqdm(rows, desc="Finding websites", unit="provider"):
+            if args.max_runtime and _time.monotonic() - start_time > args.max_runtime:
+                print(f"  [!] Reached max runtime ({args.max_runtime}s). Stopping cleanly.", file=sys.stderr)
+                break
             if row["npi"] in done:
                 skipped += 1
                 continue
