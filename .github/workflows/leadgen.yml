@@ -69,14 +69,17 @@ jobs:
       - name: Run Stage 2 (Website discovery)
         if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '2' || github.event_name == 'schedule' }}
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ]; then
-            # Unattended overnight sweep: process orgs as far as possible, stop cleanly before the 300-min job limit.
-            python find_websites.py --only-orgs --max-runtime 15500
-          else
-            ARGS="--limit ${{ github.event.inputs.limit }}"
+          # --max-runtime 15500s keeps the job well under the 300-min hard limit so
+          # the script exits cleanly and the cache-save step always runs (resume-safe).
+          ARGS="--max-runtime 15500"
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            ARGS="--limit ${{ github.event.inputs.limit }} $ARGS"
             if [ "${{ github.event.inputs.only_orgs }}" = "true" ]; then ARGS="--only-orgs $ARGS"; fi
-            python find_websites.py $ARGS
+          else
+            # Unattended overnight sweep: process orgs as far as possible each run.
+            ARGS="--only-orgs $ARGS"
           fi
+          python find_websites.py $ARGS
 
       - name: Run Stage 3 (Email extraction)
         if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '3' || github.event_name == 'schedule' }}
