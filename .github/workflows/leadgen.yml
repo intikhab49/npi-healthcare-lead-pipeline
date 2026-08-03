@@ -69,9 +69,9 @@ jobs:
       - name: Run Stage 2 (Website discovery)
         if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '2' || github.event_name == 'schedule' }}
         run: |
-          # --max-runtime 15500s keeps the job well under the 300-min hard limit so
-          # the script exits cleanly and the cache-save step always runs (resume-safe).
-          ARGS="--max-runtime 15500"
+          # --max-runtime keeps the job under the 300-min hard limit so the script
+          # exits cleanly and the cache-save step always runs (resume-safe).
+          ARGS="--max-runtime 14000"
           if [ "${{ github.event_name }}" != "schedule" ]; then
             ARGS="--limit ${{ github.event.inputs.limit }} $ARGS"
             if [ "${{ github.event.inputs.only_orgs }}" = "true" ]; then ARGS="--only-orgs $ARGS"; fi
@@ -91,6 +91,7 @@ jobs:
           wc -l outputs/*.csv 2>/dev/null || echo "no CSVs yet"
 
       - name: Upload results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: leadgen-outputs

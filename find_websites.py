@@ -133,7 +133,7 @@ def verify_domain_live(session, cfg, url):
             allow_redirects=True,
         )
         return 200 <= resp.status_code < 400
-    except requests.RequestException:
+    except Exception:
         return False
 
 
