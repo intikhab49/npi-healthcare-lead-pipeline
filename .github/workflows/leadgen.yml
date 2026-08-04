@@ -26,11 +26,11 @@ on:
   schedule:
     # Weekly Monday 4:00 UTC — refresh NPI data
     - cron: '0 4 * * 1'
-    # Every hour — auto-resume website discovery until orgs done
-    - cron: '15 * * * *'
+    # Every 4 hours — auto-resume website/email discovery.
+    # Each run takes ~4h; 4h interval ensures one finishes before the next fires.
+    - cron: '0 */4 * * *'
 
-# Prevent overlapping runs: only one pipeline run at a time. New scheduled
-# runs wait in queue, so two runs can never write the same CSV concurrently.
+# Only one pipeline run at a time. Runs queue behind the in-progress one.
 concurrency:
   group: leadgen-pipeline
   cancel-in-progress: false
@@ -57,8 +57,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: outputs
-          key: leadgen-outputs-v2-${{ github.run_id }}
+          key: leadgen-outputs-v3-${{ github.run_id }}
           restore-keys: |
+            leadgen-outputs-v3-
             leadgen-outputs-v2-
             leadgen-outputs-v1-
 
@@ -69,14 +70,11 @@ jobs:
       - name: Run Stage 2 (Website discovery)
         if: ${{ github.event.inputs.stage == 'all' || github.event.inputs.stage == '2' || github.event_name == 'schedule' }}
         run: |
-          # --max-runtime keeps the job under the 300-min hard limit so the script
-          # exits cleanly and the cache-save step always runs (resume-safe).
           ARGS="--max-runtime 14000"
           if [ "${{ github.event_name }}" != "schedule" ]; then
             ARGS="--limit ${{ github.event.inputs.limit }} $ARGS"
             if [ "${{ github.event.inputs.only_orgs }}" = "true" ]; then ARGS="--only-orgs $ARGS"; fi
           else
-            # Unattended overnight sweep: process orgs as far as possible each run.
             ARGS="--only-orgs $ARGS"
           fi
           python find_websites.py $ARGS
@@ -104,4 +102,4 @@ jobs:
         uses: actions/cache@v4
         with:
           path: outputs
-          key: leadgen-outputs-v2-${{ github.run_id }}
+          key: leadgen-outputs-v3-${{ github.run_id }}
