@@ -26,9 +26,8 @@ on:
   schedule:
     # Weekly Monday 4:00 UTC — refresh NPI data
     - cron: '0 4 * * 1'
-    # Every 4 hours — auto-resume website/email discovery.
-    # Each run takes ~4h; 4h interval ensures one finishes before the next fires.
-    - cron: '0 */4 * * *'
+    # DISABLED: every 4h sweep was getting cancelled by GitHub concurrency
+    # - cron: '0 */4 * * *'
 
 # Only one pipeline run at a time. Runs queue behind the in-progress one.
 concurrency:
